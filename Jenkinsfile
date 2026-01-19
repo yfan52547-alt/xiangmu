@@ -9,6 +9,15 @@ pipeline {
   }
 
   stages {
+    stage('Git Setup') {
+      steps {
+        // 设置 Git 配置，防止网络问题
+        sh 'git config --global http.postBuffer 524288000'  // 增加缓存大小，500MB
+        sh 'git config --global core.compression 9'         // 增加压缩率
+        sh 'git config --global pack.threads 1'             // 设置单线程拉取
+      }
+    }
+
     stage('Checkout') {
       steps {
         checkout scm
