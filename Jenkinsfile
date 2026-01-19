@@ -48,7 +48,7 @@ pipeline {
     stage('Push to ACR DEV (auto)') {
       steps {
         withCredentials([usernamePassword(
-          credentialsId: 'acr-push',
+          credentialsId: 'acr-login',,
           usernameVariable: 'ACR_USER',
           passwordVariable: 'ACR_PASS'
         )]) {
