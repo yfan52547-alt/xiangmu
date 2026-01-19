@@ -78,26 +78,37 @@ pipeline {
     }
 
     stage('Promote to ACR TEST (manual approval + version V.1.X)') {
-      when {
-        branch 'main'
+  steps {
+    script {
+      // 1) 人工确认 + 手动输入版本号
+      def version = input(
+        message: '确认要推送到 TEST 仓库吗？请输入版本号（格式：V.1.X，例如 V.1.2）',
+        ok: '确认推送',
+        parameters: [
+          string(name: 'VERSION', defaultValue: 'V.1.1', description: '必须是 V.1.X')
+        ]
+      ) as String
+
+      // 2) 版本格式校验：只允许 V.1.X
+      if (!(version ==~ /V\.1\.\d+/)) {
+        error("版本号格式不正确：${version}，必须是 V.1.X（例如 V.1.2）")
       }
-      steps {
-        script {
-          def v = input(
-            message: "是否要推送到 TEST 仓库？如果要，请输入版本号（格式：V.1.X，例如 V.1.3）。取消则不会推送。",
-            ok: "确认推送",
-            parameters: [
-              string(name: 'RELEASE_VERSION', defaultValue: 'V.1.1', description: '必须是 V.1.X 格式，例如 V.1.3')
-            ]
-          ) as String
 
-          // 校验版本格式：V.1.X（X为数字）
-          if (!(v ==~ /^V\\.1\\.[0-9]+$/)) {
-            error("版本号格式不正确：${v}。必须是 V.1.X，例如 V.1.3")
-          }
+      // 3) 目标 TEST 镜像地址（你确认的 ray-dev/ray-dev）
+      def TEST_IMAGE = "crpi-qvxmqo14dnp2pn9g.cn-hangzhou.personal.cr.aliyuncs.com/ray-dev/ray-dev:${version}"
 
-          env.RELEASE_VERSION = v
-        }
+      // 4) 登录 + tag + push
+      sh """
+        set -e
+        echo "\$ACR_PASS" | docker login -u "\$ACR_USER" --password-stdin crpi-qvxmqo14dnp2pn9g.cn-hangzhou.personal.cr.aliyuncs.com
+        docker tag demo-web:latest ${TEST_IMAGE}
+        docker push ${TEST_IMAGE}
+        echo "Pushed TEST: ${TEST_IMAGE}"
+      """
+    }
+  }
+}
+
 
         withCredentials([usernamePassword(credentialsId: 'acr-login', usernameVariable: 'ACR_USER', passwordVariable: 'ACR_PASS')]) {
           sh '''
