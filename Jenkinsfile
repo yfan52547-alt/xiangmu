@@ -38,18 +38,19 @@ pipeline {
 
     stage('Push to ACR DEV (auto)') {
       steps {
-        withCredentials([usernamePassword(
-          credentialsId: 'acr-push',
-          usernameVariable: 'ACR_USER',
-          passwordVariable: 'ACR_PASS'
-        )]) {
-          sh """
-            set -ex
-            echo "\$ACR_PASS" | docker login ${REGISTRY} -u "\$ACR_USER" --password-stdin
-            docker push ${env.IMAGE}
-            echo "${env.IMAGE}" > build-info.txt
-          """
-        }
+withCredentials([usernamePassword(
+  credentialsId: 'acr-login',  // 修改为已有的凭据ID
+  usernameVariable: 'ACR_USER',
+  passwordVariable: 'ACR_PASS'
+)]) {
+  sh """
+    set -ex
+    echo "\$ACR_PASS" | docker login ${REGISTRY} -u "\$ACR_USER" --password-stdin
+    docker push ${env.IMAGE}
+    echo "${env.IMAGE}" > build-info.txt
+  """
+}
+
         archiveArtifacts artifacts: 'build-info.txt', fingerprint: true
       }
     }
