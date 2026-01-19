@@ -9,10 +9,28 @@ pipeline {
   }
 
   stages {
+    stage('Git Setup') {
+      steps {
+        // 配置 Git 使用 HTTP/1.1，增加缓存和超时设置
+        sh '''
+          git config --global http.postBuffer 524288000
+          git config --global core.compression 9
+          git config --global pack.threads 1
+          git config --global http.version HTTP/1.1
+          git config --global http.lowSpeedLimit 0
+          git config --global http.lowSpeedTime 99999
+        '''
+      }
+    }
+
     stage('Checkout') {
       steps {
-        checkout scm
-        sh 'ls -la'
+        // 拉取代码时加入重试机制，最多重试3次
+        script {
+          retry(3) {
+            checkout scm
+          }
+        }
       }
     }
 
@@ -38,18 +56,18 @@ pipeline {
 
     stage('Push to ACR DEV (auto)') {
       steps {
-withCredentials([usernamePassword(
-  credentialsId: 'acr-login',  // 修改为已有的凭据ID
-  usernameVariable: 'ACR_USER',
-  passwordVariable: 'ACR_PASS'
-)]) {
-  sh """
-    set -ex
-    echo "\$ACR_PASS" | docker login ${REGISTRY} -u "\$ACR_USER" --password-stdin
-    docker push ${env.IMAGE}
-    echo "${env.IMAGE}" > build-info.txt
-  """
-}
+        withCredentials([usernamePassword(
+          credentialsId: 'acr-login',  // 修改为已有的凭据ID
+          usernameVariable: 'ACR_USER',
+          passwordVariable: 'ACR_PASS'
+        )]) {
+          sh """
+            set -ex
+            echo "\$ACR_PASS" | docker login ${REGISTRY} -u "\$ACR_USER" --password-stdin
+            docker push ${env.IMAGE}
+            echo "${env.IMAGE}" > build-info.txt
+          """
+        }
 
         archiveArtifacts artifacts: 'build-info.txt', fingerprint: true
       }
