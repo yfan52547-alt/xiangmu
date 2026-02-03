@@ -96,40 +96,4 @@ pipeline {
             message: '确认要推送到 TEST 仓库吗？请输入版本号和 Docker 用户名',
             ok: '确认推送',
             parameters: [
-              string(name: 'VERSION', defaultValue: 'V.1.1', description: '请输入版本号，例如 V.1.2'),
-              string(name: 'DOCKER_USERNAME', defaultValue: 'fanyibo-20251013', description: '请输入 Docker 用户名')
-            ]
-          )
-
-          def version = userInput['VERSION']
-          def dockerUsername = userInput['DOCKER_USERNAME']
-
-          // 校验版本号格式：只允许 V.1.X
-          if (!(version ==~ /V\.1\.\d+/)) {
-            error("版本号格式不正确：${version}，必须是 V.1.X（例如 V.1.2）")
-          }
-
-          // 确定要推送到 ACR TEST 的镜像地址
-          def TEST_IMAGE = "${REGISTRY}/${NAMESPACE}/gallery-app:${version}"
-
-          // 使用输入的 Docker 用户名进行 Docker 登录
-          withCredentials([usernamePassword(credentialsId: 'acr-login', usernameVariable: 'ACR_USER', passwordVariable: 'ACR_PASS')]) {
-            sh """
-              set -e
-              echo "\$ACR_PASS" | docker login ${REGISTRY} -u \$dockerUsername --password-stdin
-              docker tag ${env.IMAGE} ${TEST_IMAGE}
-              docker push ${TEST_IMAGE}
-              echo "Pushed TEST: ${TEST_IMAGE}"
-            """
-          }
-        }
-      }
-    }
-  }
-
-  post {
-    always {
-      echo "Pipeline finished."
-    }
-  }
-}
+              string(name: 'VERSION', defaultValue: 'V.1.1', description:
