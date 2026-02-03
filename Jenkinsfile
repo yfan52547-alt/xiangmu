@@ -75,26 +75,34 @@ pipeline {
 
     stage('Deploy (optional local run)') {
       steps {
-        sh '''
-          set -e
-          docker rm -f demo-web || true
-          docker run -d --name demo-web -p 8088:80 demo-web:latest
-          echo "Deployed locally: http://<your-ecs-ip>:8088"
-        '''
+        script {
+          // 使用 commit-${sha} 标签
+          def localImage = "${REGISTRY}/${NAMESPACE}/${IMAGE_NAME}:${env.IMAGE_TAG}"
+          sh """
+            set -e
+            docker rm -f demo-web || true
+            docker run -d --name demo-web -p 8088:80 ${localImage}
+            echo "Deployed locally: http://<your-ecs-ip>:8088"
+          """
+        }
       }
     }
 
     stage('Promote to ACR TEST (manual approval + version V.1.X)') {
       steps {
         script {
-          // 人工确认 + 手动输入版本号
-          def version = input(
-            message: '确认要推送到 TEST 仓库吗？请输入版本号（格式：V.1.X，例如 V.1.2）',
+          // 让用户输入版本号和 Docker 用户名
+          def userInput = input(
+            message: '确认要推送到 TEST 仓库吗？请输入版本号和 Docker 用户名',
             ok: '确认推送',
             parameters: [
-              string(name: 'VERSION', defaultValue: 'V.1.1', description: '必须是 V.1.X 格式')
+              string(name: 'VERSION', defaultValue: 'V.1.1', description: '请输入版本号，例如 V.1.2'),
+              string(name: 'DOCKER_USERNAME', defaultValue: 'fanyibo-20251013', description: '请输入 Docker 用户名')
             ]
-          ) as String
+          )
+
+          def version = userInput['VERSION']
+          def dockerUsername = userInput['DOCKER_USERNAME']
 
           // 校验版本号格式：只允许 V.1.X
           if (!(version ==~ /V\.1\.\d+/)) {
@@ -102,16 +110,18 @@ pipeline {
           }
 
           // 确定要推送到 ACR TEST 的镜像地址
-          def TEST_IMAGE = "${REGISTRY}/${NAMESPACE}/ray-dev:${version}"
+          def TEST_IMAGE = "${REGISTRY}/${NAMESPACE}/gallery-app:${version}"
 
-          // 推送到 ACR TEST 仓库
-          sh """
-            set -e
-            echo "\$ACR_PASS" | docker login ${REGISTRY} -u "\$ACR_USER" --password-stdin
-            docker tag demo-web:latest ${TEST_IMAGE}
-            docker push ${TEST_IMAGE}
-            echo "Pushed TEST: ${TEST_IMAGE}"
-          """
+          // 使用输入的 Docker 用户名进行 Docker 登录
+          withCredentials([usernamePassword(credentialsId: 'acr-login', usernameVariable: 'ACR_USER', passwordVariable: 'ACR_PASS')]) {
+            sh """
+              set -e
+              echo "\$ACR_PASS" | docker login ${REGISTRY} -u \$dockerUsername --password-stdin
+              docker tag ${env.IMAGE} ${TEST_IMAGE}
+              docker push ${TEST_IMAGE}
+              echo "Pushed TEST: ${TEST_IMAGE}"
+            """
+          }
         }
       }
     }
