@@ -116,7 +116,7 @@ pipeline {
           withCredentials([usernamePassword(credentialsId: 'acr-login', usernameVariable: 'ACR_USER', passwordVariable: 'ACR_PASS')]) {
             sh """
               set -e
-              echo "\$ACR_PASS" | docker login ${REGISTRY} -u \$dockerUsername --password-stdin
+              echo "\$ACR_PASS" | docker login ${REGISTRY} -u "\$dockerUsername" --password-stdin
               docker tag ${env.IMAGE} ${TEST_IMAGE}
               docker push ${TEST_IMAGE}
               echo "Pushed TEST: ${TEST_IMAGE}"
