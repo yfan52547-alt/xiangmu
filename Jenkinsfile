@@ -104,9 +104,9 @@ pipeline {
           def version = userInput['VERSION']
           def dockerUsername = userInput['DOCKER_USERNAME']
 
-          // 校验版本号格式：只允许 V.1.X
-          if (!(version ==~ /V\.1\.\d+/)) {
-            error("版本号格式不正确：${version}，必须是 V.1.X（例如 V.1.2）")
+          // 校验版本号格式：只允许类似 xiangmu.1.1 格式
+          if (!(version ==~ /^[a-zA-Z]{1,8}\.\d+\.\d+$/)) {
+            error("版本号格式不正确：${version}，必须是类似 xiangmu.1.1 的格式")
           }
 
           // 确定要推送到 ACR TEST 的镜像地址
