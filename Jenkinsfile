@@ -1,5 +1,11 @@
 pipeline {
   agent any
+stage('Sanity') {
+  steps {
+    echo "Jenkinsfile is running!"
+    sh 'ls -la'
+  }
+}
 
   options {
     timestamps()
