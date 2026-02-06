@@ -1,13 +1,6 @@
 pipeline {
   agent any
 
-  options {
-    timestamps()
-    disableConcurrentBuilds()
-    ansiColor('xterm')
-    buildDiscarder(logRotator(numToKeepStr: '20'))
-  }
-
   environment {
     REGISTRY  = "crpi-2nt3d5r15x1zymbh.cn-hangzhou.personal.cr.aliyuncs.com"
     NAMESPACE = "rad-dev"
@@ -18,11 +11,11 @@ pipeline {
     stage('Sanity') {
       steps {
         sh '''
-          set -ex
+          set -eux
           whoami
           pwd
-          git --version || true
-          docker --version
+          ls -la
+          docker version
         '''
       }
     }
@@ -30,43 +23,36 @@ pipeline {
     stage('Checkout') {
       steps {
         checkout scm
-        sh '''
-          set -ex
-          git log -1 --oneline
-          ls -la
-          test -f Dockerfile
-        '''
+        sh 'git log -1 --oneline'
       }
     }
 
-    stage('Build Image') {
+    stage('Build') {
       steps {
         script {
           def sha = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
-          env.TAG = "commit-${sha}"
-          env.IMAGE = "${REGISTRY}/${NAMESPACE}/${REPO}:${env.TAG}"
+          env.IMAGE = "${REGISTRY}/${NAMESPACE}/${REPO}:commit-${sha}"
         }
         sh '''
-          set -ex
-          echo "Building: ${IMAGE}"
-          docker build -t ${IMAGE} .
-          docker images | head
+          set -eux
+          test -f Dockerfile
+          docker build -t "$IMAGE" .
         '''
       }
     }
 
-    stage('Login & Push to ACR') {
+    stage('Login & Push') {
       steps {
         withCredentials([usernamePassword(
-          credentialsId: 'acr-push',   // ✅ 用你 Jenkins 里真实存在的
+          credentialsId: 'acr-push',   // 你截图里叫 acr-push，不是 acr-login
           usernameVariable: 'ACR_USER',
           passwordVariable: 'ACR_PASS'
         )]) {
           sh '''
-            set -ex
-            echo "$ACR_PASS" | docker login ${REGISTRY} -u "$ACR_USER" --password-stdin
-            docker push ${IMAGE}
-            echo "${IMAGE}" > build-info.txt
+            set -eux
+            echo "$ACR_PASS" | docker login "$REGISTRY" -u "$ACR_USER" --password-stdin
+            docker push "$IMAGE"
+            echo "$IMAGE" > build-info.txt
           '''
         }
         archiveArtifacts artifacts: 'build-info.txt', fingerprint: true
@@ -76,7 +62,7 @@ pipeline {
 
   post {
     always {
-      sh 'docker logout ${REGISTRY} >/dev/null 2>&1 || true'
+      sh 'docker logout "$REGISTRY" >/dev/null 2>&1 || true'
     }
   }
 }
