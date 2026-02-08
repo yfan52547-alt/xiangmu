@@ -1,6 +1,14 @@
 pipeline {
   agent any
   options { timestamps() }
+  stages {
+    stage('I-AM-RUNNING') {
+      steps {
+        echo 'I-AM-RUNNING'
+      }
+    }
+  }
+}
 
   environment {
     REGISTRY  = "crpi-2nt3d5r15x1zymbh.cn-hangzhou.personal.cr.aliyuncs.com"
