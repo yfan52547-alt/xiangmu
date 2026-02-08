@@ -111,4 +111,4 @@ pipeline {
       sh 'docker logout "$REGISTRY" >/dev/null 2>&1 || true'
     }
   }
-}
+
