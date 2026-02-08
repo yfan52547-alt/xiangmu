@@ -1,62 +1,55 @@
-node {
+pipeline {
+  agent any
 
-  env.REGISTRY  = "crpi-2nt3d5r15x1zymbh.cn-hangzhou.personal.cr.aliyuncs.com"
-  env.NAMESPACE = "rad-dev"
-  env.REPO      = "gallery-test"
-
-  stage('CHECK') {
-    echo 'CHECK START'
-    sh '''
-      set -eux
-      whoami
-      pwd
-      ls -la
-      docker version || true
-    '''
+  environment {
+    REGISTRY   = "crpi-2nt3d5r15x1zymbh.cn-hangzhou.personal.cr.aliyuncs.com"
+    NAMESPACE  = "ray-dev"
+    IMAGE_NAME = "gallery-test"
   }
 
-  stage('CHECKOUT') {
-    checkout([
-      $class: 'GitSCM',
-      branches: [[name: '*/main']],
-      userRemoteConfigs: [[
-        url: 'https://github.com/yfan52547-alt/xiangmu.git',
-        credentialsId: 'github-token'
-      ]]
-    ])
-    sh 'git log -1 --oneline'
-  }
+  stages {
+    stage('Checkout') {
+      steps {
+        checkout scm
+      }
+    }
 
-  stage('BUILD') {
-    sh '''
-      set -eux
-      if [ ! -f Dockerfile ]; then
-        echo "ERROR: Dockerfile not found"
-        exit 1
-      fi
+    stage('Build Image') {
+      steps {
+        script {
+          def sha = sh(
+            script: "git rev-parse --short HEAD",
+            returnStdout: true
+          ).trim()
 
-      TAG=$(git rev-parse --short HEAD)
-      IMAGE=$REGISTRY/$NAMESPACE/$REPO:commit-$TAG
-      echo "IMAGE=$IMAGE"
+          env.IMAGE_TAG = "commit-${sha}"
+          env.IMAGE = "${REGISTRY}/${NAMESPACE}/${IMAGE_NAME}:${env.IMAGE_TAG}"
 
-      docker build -t "$IMAGE" .
-      echo "$IMAGE" > image.txt
-    '''
-  }
+          sh """
+            set -e
+            docker build -t ${env.IMAGE} .
+          """
+        }
+      }
+    }
 
-  stage('LOGIN & PUSH') {
-    withCredentials([usernamePassword(
-      credentialsId: 'acr-push',
-      usernameVariable: 'ACR_USER',
-      passwordVariable: 'ACR_PASS'
-    )]) {
-      sh '''
-        set -eux
-        IMAGE=$(cat image.txt)
-        echo "$ACR_PASS" | docker login "$REGISTRY" -u "$ACR_USER" --password-stdin
-        docker push "$IMAGE"
-      '''
+    stage('Push to ACR') {
+      steps {
+        withCredentials([usernamePassword(
+          credentialsId: 'acr-push',
+          usernameVariable: 'ACR_USER',
+          passwordVariable: 'ACR_PASS'
+        )]) {
+          sh """
+            set -e
+            echo "\$ACR_PASS" | docker login ${REGISTRY} -u "\$ACR_USER" --password-stdin
+            docker push ${env.IMAGE}
+            echo "${env.IMAGE}" > build-info.txt
+          """
+        }
+
+        archiveArtifacts artifacts: 'build-info.txt', fingerprint: true
+      }
     }
   }
-
 }
