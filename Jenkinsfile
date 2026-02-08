@@ -1,5 +1,17 @@
 pipeline {
   agent any
+stage('Sanity') {
+  steps {
+    sh '''
+      set -eux
+      echo "I AM RUNNING JENKINSFILE STAGES"
+      whoami
+      pwd
+      ls -la
+      docker version
+    '''
+  }
+}
 
   environment {
     REGISTRY  = "crpi-2nt3d5r15x1zymbh.cn-hangzhou.personal.cr.aliyuncs.com"
