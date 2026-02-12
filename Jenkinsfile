@@ -2,7 +2,6 @@ pipeline {
   agent any
 
   environment {
-    // 使用你提供的仓库路径
     REPO_PATH  = "crpi-2nt3d5r15x1zymbh.cn-hangzhou.personal.cr.aliyuncs.com/rad-dev/gallery-test"
     REGISTRY   = "crpi-2nt3d5r15x1zymbh.cn-hangzhou.personal.cr.aliyuncs.com"
     IMAGE_NAME = "gallery-test"
@@ -28,7 +27,7 @@ pipeline {
           env.NAMESPACE  = parts[1]
           env.IMAGE_NAME = parts[2]
 
-          // 生成 tag
+          // 获取 Git 提交 ID
           def sha = sh(
             script: "git rev-parse --short HEAD",
             returnStdout: true
@@ -37,20 +36,43 @@ pipeline {
           env.IMAGE_TAG = "commit-${sha}"
           env.IMAGE = "${env.REGISTRY}/${env.NAMESPACE}/${env.IMAGE_NAME}:${env.IMAGE_TAG}"
 
-          sh """
-            set -e
-            echo "=== Build Info ==="
-            echo "REPO_PATH   : ${env.REPO_PATH}"
-            echo "REGISTRY    : ${env.REGISTRY}"
-            echo "NAMESPACE   : ${env.NAMESPACE}"
-            echo "IMAGE_NAME  : ${env.IMAGE_NAME}"
-            echo "IMAGE_TAG   : ${env.IMAGE_TAG}"
-            echo "FINAL IMAGE : ${env.IMAGE}"
-            echo "==============="
+          // 打印构建信息
+          echo "=== Build Info ==="
+          echo "REPO_PATH   : ${env.REPO_PATH}"
+          echo "REGISTRY    : ${env.REGISTRY}"
+          echo "NAMESPACE   : ${env.NAMESPACE}"
+          echo "IMAGE_NAME  : ${env.IMAGE_NAME}"
+          echo "IMAGE_TAG   : ${env.IMAGE_TAG}"
+          echo "FINAL IMAGE : ${env.IMAGE}"
+          echo "==============="
 
-            docker version
-            docker build --pull -t ${env.IMAGE} .
-          """
+          // 构建 Docker 镜像
+          docker build --pull -t ${env.IMAGE} .
+        }
+      }
+    }
+
+    stage('Input Version for Tagging') {
+      steps {
+        script {
+          // 等待用户输入版本号
+          env.VERSION = input(
+            message: 'Please input the version (e.g., V1.0.0):',
+            parameters: [
+              string(defaultValue: '', description: 'Enter version', name: 'VERSION_TAG')
+            ]
+          )
+          
+          // 确保版本号是有效的
+          if (!env.VERSION) {
+            error "Version is required to push the image."
+          }
+
+          // 更新镜像标签
+          env.IMAGE_TAG = "v${env.VERSION}"
+          env.IMAGE = "${env.REGISTRY}/${env.NAMESPACE}/${env.IMAGE_NAME}:${env.IMAGE_TAG}"
+          
+          echo "New Image Tag: ${env.IMAGE_TAG}"
         }
       }
     }
