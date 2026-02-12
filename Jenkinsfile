@@ -2,8 +2,8 @@ pipeline {
   agent any
 
   environment {
-    // 请确保这里填的是你控制台仓库页面提供的完整路径
-    REPO_PATH  = "crpi-2nt3d5r15x1zymbh.cn-hangzhou.personal.cr.aliyuncs.com/yiyi-clound/gallery-test"
+    // 使用你提供的仓库路径
+    REPO_PATH  = "crpi-2nt3d5r15x1zymbh.cn-hangzhou.personal.cr.aliyuncs.com/rad-dev/gallery-test"
     REGISTRY   = "crpi-2nt3d5r15x1zymbh.cn-hangzhou.personal.cr.aliyuncs.com"
     IMAGE_NAME = "gallery-test"
   }
@@ -18,7 +18,7 @@ pipeline {
     stage('Build Image') {
       steps {
         script {
-          // 解析 REGISTRY / NAMESPACE / IMAGE_NAME
+          // 解析 REPO_PATH
           def parts = env.REPO_PATH.tokenize('/')
           if (parts.size() < 3) {
             error "REPO_PATH 格式不正确，应为：<registry>/<namespace>/<repo>，当前：${env.REPO_PATH}"
