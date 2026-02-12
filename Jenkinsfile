@@ -1,18 +1,11 @@
 pipeline {
   agent any
 
-  // 可选：允许运行时覆盖命名空间（默认自动从 REPO_PATH 解析）
-  parameters {
-    string(name: 'NAMESPACE_OVERRIDE', defaultValue: '', description: '可选：手动覆盖 ACR 命名空间；留空则从 REPO_PATH 自动解析')
-  }
-
   environment {
-    // ===== 你需要改这里：把 REPO_PATH 换成你控制台里 “仓库地址/公网地址” 对应的完整路径 =====
-    // 例：crpi-xxxx.cn-hangzhou.personal.cr.aliyuncs.com/<namespace>/gallery-test
-    REPO_PATH  = "crpi-2nt3d5r15x1zymbh.cn-hangzhou.personal.cr.aliyuncs.com/请把这里改成真实namespace/gallery-test"
-
-    // registry 主机将从 REPO_PATH 自动解析
-    // 镜像名也从 REPO_PATH 自动解析（最后一段）
+    // 请确保这里填的是你控制台仓库页面提供的完整路径
+    REPO_PATH  = "crpi-2nt3d5r15x1zymbh.cn-hangzhou.personal.cr.aliyuncs.com/yiyi-clound/gallery-test"
+    REGISTRY   = "crpi-2nt3d5r15x1zymbh.cn-hangzhou.personal.cr.aliyuncs.com"
+    IMAGE_NAME = "gallery-test"
   }
 
   stages {
@@ -34,11 +27,6 @@ pipeline {
           env.REGISTRY   = parts[0]
           env.NAMESPACE  = parts[1]
           env.IMAGE_NAME = parts[2]
-
-          // 允许手动覆盖命名空间（比如你想临时测试）
-          if (params.NAMESPACE_OVERRIDE?.trim()) {
-            env.NAMESPACE = params.NAMESPACE_OVERRIDE.trim()
-          }
 
           // 生成 tag
           def sha = sh(
@@ -91,7 +79,6 @@ pipeline {
             echo "Pushed: ${env.IMAGE}"
           """
         }
-
         archiveArtifacts artifacts: 'build-info.txt', fingerprint: true
       }
     }
