@@ -34,29 +34,26 @@ pipeline {
     stage('Manual Confirm Version') {
       steps {
         script {
-          // 弹出输入框：输入 V.X.X
           def userInput = input(
-            message: "准备推送到 ACR：${REGISTRY}/${NAMESPACE}/${IMAGE_NAME}\\n请输入版本号（格式：V1.2.3）后继续：",
-            ok: "确认并继续推送",
+            message: "准备推送镜像\n请输入版本号（格式：V1.1 或 V1.1.2）",
+            ok: "确认推送",
             parameters: [
-              string(name: 'VERSION', defaultValue: 'V1.0.0', description: '版本号必须是 V数字.数字.数字，例如 V1.2.3')
+              string(name: 'VERSION', defaultValue: 'V1.0', description: '格式：V1.1 或 V1.1.2')
             ]
           )
 
-          // input 返回的是你填的字符串
           env.VERSION = "${userInput}".trim()
 
-          // 严格校验：V数字.数字.数字
-          if (!(env.VERSION ==~ /^V\\d+\\.\\d+\\.\\d+$/)) {
-            error "版本号格式不正确：${env.VERSION}。请使用 V1.2.3 这种格式（大写V + 数字.数字.数字）"
+          // 新规则：V数字.数字(.数字可选)
+          if (!(env.VERSION ==~ /^V\d+\.\d+(\.\d+)?$/)) {
+            error "版本号格式错误：${env.VERSION}。允许格式：V1.1 或 V1.1.2"
           }
 
           env.IMAGE_VERSION = "${REGISTRY}/${NAMESPACE}/${IMAGE_NAME}:${env.VERSION}"
 
-          // 给同一个 image 再打一个版本 tag（不重新 build）
           sh """
             set -e
-            echo "Tagging => ${env.IMAGE_COMMIT}  ==>  ${env.IMAGE_VERSION}"
+            echo "Tagging => ${env.IMAGE_COMMIT} -> ${env.IMAGE_VERSION}"
             docker tag ${env.IMAGE_COMMIT} ${env.IMAGE_VERSION}
           """
         }
@@ -74,10 +71,10 @@ pipeline {
             set -e
             echo "\$ACR_PASS" | docker login ${REGISTRY} -u "\$ACR_USER" --password-stdin
 
-            echo "Pushing => ${env.IMAGE_COMMIT}"
+            echo "Pushing commit tag..."
             docker push ${env.IMAGE_COMMIT}
 
-            echo "Pushing => ${env.IMAGE_VERSION}"
+            echo "Pushing version tag..."
             docker push ${env.IMAGE_VERSION}
 
             echo "${env.IMAGE_VERSION}" > build-info.txt
