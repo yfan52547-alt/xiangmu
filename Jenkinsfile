@@ -35,17 +35,17 @@ pipeline {
       steps {
         script {
           def userInput = input(
-            message: "准备推送镜像\n请输入版本号（格式：V1.1 或 V1.1.2）",
-            ok: "确认推送",
+            message: "请输入版本号（允许：V1.1 或 V1.1.2）",
+            ok: "确认",
             parameters: [
-              string(name: 'VERSION', defaultValue: 'V1.0', description: '格式：V1.1 或 V1.1.2')
+              string(name: 'VERSION', defaultValue: 'V1.0', description: '格式：V数字.数字 或 V数字.数字.数字')
             ]
           )
 
           env.VERSION = "${userInput}".trim()
 
-          // 新规则：V数字.数字(.数字可选)
-          if (!(env.VERSION ==~ /^V\d+\.\d+(\.\d+)?$/)) {
+          // 允许：V1.1 或 V1.1.2
+          if (!(env.VERSION ==~ /^V\\d+\\.\\d+(\\.\\d+)?$/)) {
             error "版本号格式错误：${env.VERSION}。允许格式：V1.1 或 V1.1.2"
           }
 
@@ -56,6 +56,36 @@ pipeline {
             echo "Tagging => ${env.IMAGE_COMMIT} -> ${env.IMAGE_VERSION}"
             docker tag ${env.IMAGE_COMMIT} ${env.IMAGE_VERSION}
           """
+        }
+      }
+    }
+
+    stage('Check Version Not Exists') {
+      steps {
+        withCredentials([usernamePassword(
+          credentialsId: 'acr-push',
+          usernameVariable: 'ACR_USER',
+          passwordVariable: 'ACR_PASS'
+        )]) {
+          script {
+            // 先登录，确保 manifest inspect 能访问私有仓库
+            sh """
+              set -e
+              echo "\$ACR_PASS" | docker login ${REGISTRY} -u "\$ACR_USER" --password-stdin
+            """
+
+            // 检查 tag 是否存在
+            def status = sh(
+              script: "docker manifest inspect ${env.IMAGE_VERSION} > /dev/null 2>&1",
+              returnStatus: true
+            )
+
+            if (status == 0) {
+              error "版本 ${env.VERSION} 已存在（${env.IMAGE_VERSION}），禁止覆盖发布"
+            }
+
+            echo "OK：版本 ${env.VERSION} 不存在，可以发布"
+          }
         }
       }
     }
