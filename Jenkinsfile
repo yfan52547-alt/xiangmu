@@ -35,8 +35,8 @@ pipeline {
       steps {
         script {
           def userInput = input(
-            message: "请输入版本号（允许：V1.2 或 V1.2.3）",
-            ok: "确认",
+            message: "请输入版本号（允许：V1.2 或 V1.2.3）\\n确认后将推送：版本 + commit + latest",
+            ok: "确认发布",
             parameters: [
               string(name: 'VERSION', defaultValue: 'V1.0', description: '格式：V数字.数字 或 V数字.数字.数字')
             ]
@@ -62,18 +62,22 @@ pipeline {
 
           env.VERSION = v
 
-          // ✅ 正确正则：V1.2 或 V1.2.3
+          // ✅ 允许：V1.2 或 V1.2.3（必须大写V）
           def pattern = /^V\d+\.\d+(\.\d+)?$/
           if (!(env.VERSION ==~ pattern)) {
             error "版本号格式错误：${env.VERSION}。允许格式：V1.2 或 V1.2.3（必须大写V，点用英文.）"
           }
 
           env.IMAGE_VERSION = "${REGISTRY}/${NAMESPACE}/${IMAGE_NAME}:${env.VERSION}"
+          env.IMAGE_LATEST  = "${REGISTRY}/${NAMESPACE}/${IMAGE_NAME}:latest"
 
           sh """
             set -e
             echo "Tagging => ${env.IMAGE_COMMIT} -> ${env.IMAGE_VERSION}"
             docker tag ${env.IMAGE_COMMIT} ${env.IMAGE_VERSION}
+
+            echo "Tagging => ${env.IMAGE_VERSION} -> ${env.IMAGE_LATEST}"
+            docker tag ${env.IMAGE_VERSION} ${env.IMAGE_LATEST}
           """
         }
       }
@@ -87,11 +91,13 @@ pipeline {
           passwordVariable: 'ACR_PASS'
         )]) {
           script {
+            // 先登录，确保 manifest inspect 能访问私有仓库
             sh """
               set -e
               echo "\$ACR_PASS" | docker login ${REGISTRY} -u "\$ACR_USER" --password-stdin
             """
 
+            // 检查版本 tag 是否存在（存在：返回 0）
             def status = sh(
               script: "docker manifest inspect ${env.IMAGE_VERSION} > /dev/null 2>&1",
               returnStatus: true
@@ -101,7 +107,7 @@ pipeline {
               error "版本 ${env.VERSION} 已存在（${env.IMAGE_VERSION}），禁止覆盖发布"
             }
 
-            echo "OK：版本 ${env.VERSION} 不存在，可以发布"
+            echo "OK：版本 ${env.VERSION} 不存在，可以发布（latest 将被更新）"
           }
         }
       }
@@ -123,6 +129,9 @@ pipeline {
 
             echo "Pushing version tag => ${env.IMAGE_VERSION}"
             docker push ${env.IMAGE_VERSION}
+
+            echo "Pushing latest tag => ${env.IMAGE_LATEST}"
+            docker push ${env.IMAGE_LATEST}
 
             echo "${env.IMAGE_VERSION}" > build-info.txt
           """
