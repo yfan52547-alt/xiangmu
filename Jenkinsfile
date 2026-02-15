@@ -62,8 +62,8 @@ pipeline {
 
           env.VERSION = v
 
-          // 允许：V1.2 或 V1.2.3（必须大写V）
-          def pattern = /^V\\d+\\.\\d+(\\.\\d+)?$/
+          // ✅ 正确正则：V1.2 或 V1.2.3
+          def pattern = /^V\d+\.\d+(\.\d+)?$/
           if (!(env.VERSION ==~ pattern)) {
             error "版本号格式错误：${env.VERSION}。允许格式：V1.2 或 V1.2.3（必须大写V，点用英文.）"
           }
@@ -87,13 +87,11 @@ pipeline {
           passwordVariable: 'ACR_PASS'
         )]) {
           script {
-            // 先登录，确保 manifest inspect 能访问私有仓库
             sh """
               set -e
               echo "\$ACR_PASS" | docker login ${REGISTRY} -u "\$ACR_USER" --password-stdin
             """
 
-            // 检查 tag 是否存在（存在：返回 0）
             def status = sh(
               script: "docker manifest inspect ${env.IMAGE_VERSION} > /dev/null 2>&1",
               returnStatus: true
