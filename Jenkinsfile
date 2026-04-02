@@ -75,7 +75,7 @@ pipeline {
                     }.join('')
 
                     // 校验版本号
-                    def pattern = /^V\d+\.\d+(\.\d+)?$/
+                    def pattern = /^[Vv]\d+(\.\d+)*$/
                     if (!(v ==~ pattern)) {
                         error "版本号格式错误：${v}，允许格式：V1.2 或 V1.2.3（必须大写V）"
                     }
@@ -164,7 +164,7 @@ pipeline {
                 }
             }
         }
-
+/*
         stage('Deploy to TEST (optional)') {
             when {
                 expression { return true } // 企业环境可打开部署到 TEST
@@ -182,7 +182,7 @@ pipeline {
                 }
             }
         }
-
+*/
     }
 
     post {
